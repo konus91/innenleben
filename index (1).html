@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Innenleben</title>
+<meta name="theme-color" content="#2F6E63">
+<link rel="manifest" href="manifest.json">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body style="margin:0;">
+<div id="app-root">
+<style>
+#app-root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1F2B27; max-width: 480px; margin: 0 auto; background: #F3F6F1; min-height: 100vh; padding-bottom: 100px; }
+#app-root * { box-sizing: border-box; }
+.header { padding: 20px 20px 12px; }
+.header h1 { font-family: ui-serif, Georgia, "Times New Roman", serif; font-weight: 500; font-size: 26px; margin: 0 0 2px; letter-spacing: 0.2px; }
+.header p { margin: 0; font-size: 13px; color: #5B6B62; }
+.daynav { display: flex; align-items: center; justify-content: space-between; padding: 0 20px 16px; }
+.daynav button { background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 8px; width: 36px; height: 36px; font-size: 16px; color: #1F2B27; }
+.daynav .datelabel { font-size: 15px; font-weight: 500; text-align: center; flex: 1; }
+.quickadd { display: flex; gap: 8px; padding: 0 20px 20px; }
+.quickadd button { flex: 1; border: none; border-radius: 12px; padding: 14px 6px; font-size: 13px; font-weight: 500; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.qa-essen { background: #2F6E63; }
+.qa-stuhl { background: #B98A2E; }
+.qa-symptom { background: #7C5B72; }
+.quickadd button svg { width: 20px; height: 20px; }
+.timeline-cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; padding: 0 20px; align-items: start; }
+.col-header { font-size: 12px; font-weight: 500; text-align: center; padding: 6px 2px; border-radius: 8px 8px 0 0; color: #FFFFFF; }
+.col-header.h-essen { background: #2F6E63; }
+.col-header.h-stuhl { background: #B98A2E; }
+.col-header.h-symptom { background: #7C5B72; }
+.col-body { background: #FFFFFF; border: 1px solid #E1E7DE; border-top: none; border-radius: 0 0 8px 8px; min-height: 60px; padding: 6px; }
+.card { border-bottom: 1px solid #E1E7DE; padding: 8px 2px; }
+.card:last-child { border-bottom: none; }
+.card .row1 { display: flex; justify-content: space-between; align-items: baseline; }
+.card .time { font-size: 11px; color: #5B6B62; font-weight: 500; }
+.card .text { font-size: 12px; margin-top: 3px; line-height: 1.35; word-break: break-word; }
+.card .meta { font-size: 11px; color: #5B6B62; margin-top: 3px; }
+.photowrap { position: relative; margin-top: 6px; border-radius: 6px; overflow: hidden; }
+.photowrap img { width: 100%; display: block; border-radius: 6px; }
+.photowrap.hidden img { filter: blur(16px); }
+.photowrap .reveal { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(31,43,39,0.25); border: none; color: #FFFFFF; font-size: 11px; }
+.photowrap.revealed.hidden img { filter: none; }
+.photowrap.revealed .reveal { display: none; }
+.card .del { background: none; border: none; color: #B4B2A9; font-size: 11px; padding: 2px 0; margin-top: 2px; }
+.empty-col { text-align: center; color: #B4B2A9; font-size: 11px; padding: 14px 4px; }
+.overlay { position: fixed; inset: 0; background: rgba(31,43,39,0.4); display: flex; align-items: flex-end; z-index: 10; }
+.sheet { background: #FFFFFF; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 16px 16px 0 0; padding: 20px; max-height: 88vh; overflow-y: auto; }
+.sheet h2 { font-size: 17px; margin: 0 0 14px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; color: #5B6B62; margin-bottom: 4px; }
+.field textarea { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit; min-height: 60px; resize: vertical; }
+.field input[type=datetime-local] { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; }
+.mic { display: flex; gap: 8px; align-items: center; }
+.mic button { border: 1px solid #E1E7DE; background: #F3F6F1; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.mic button.rec { background: #7C5B72; color: #FFFFFF; border-color: #7C5B72; }
+.scalepicker { display: flex; gap: 6px; flex-wrap: wrap; }
+.scalepicker button { width: 40px; height: 40px; border-radius: 8px; border: 1px solid #E1E7DE; background: #F3F6F1; font-size: 14px; }
+.scalepicker button.sel { background: #B98A2E; color: #FFFFFF; border-color: #B98A2E; }
+.scalepicker button.sel.symptom { background: #7C5B72; border-color: #7C5B72; }
+.photobtn { border: 1px dashed #E1E7DE; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; color: #5B6B62; display: block; }
+.sheetbtns { display: flex; gap: 10px; margin-top: 16px; }
+.sheetbtns button { flex: 1; border-radius: 10px; padding: 12px; font-size: 14px; border: none; }
+.btn-cancel { background: #F3F6F1; color: #1F2B27; }
+.btn-save { background: #2F6E63; color: #FFFFFF; font-weight: 500; }
+.hint { font-size: 11px; color: #B4B2A9; margin-top: 2px; }
+.headerrow { display: flex; justify-content: space-between; align-items: flex-start; }
+.gearbtn { background: none; border: none; color: #5B6B62; padding: 4px; margin-top: 2px; }
+.gearbtn svg { width: 20px; height: 20px; }
+.switchrow { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+.switchrow .label { font-size: 14px; }
+.switchrow .sublabel { font-size: 12px; color: #5B6B62; margin-top: 2px; }
+.switch { position: relative; width: 44px; height: 26px; border-radius: 13px; background: #E1E7DE; border: none; flex-shrink: 0; }
+.switch.on { background: #2F6E63; }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; transition: left 0.15s; }
+.switch.on .knob { left: 20px; }
+</style>
+
+<div class="header">
+  <div class="headerrow">
+    <div>
+      <h1>Innenleben</h1>
+      <p>Was reinkommt, was rauskommt.</p>
+    </div>
+    <button class="gearbtn" onclick="openSettings()" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</div>
+<div id="settingsOverlay"></div>
+
+<div class="daynav">
+  <button onclick="changeDay(-1)">‹</button>
+  <div class="datelabel" id="dateLabel"></div>
+  <button onclick="changeDay(1)">›</button>
+</div>
+
+<div class="quickadd">
+  <button class="qa-essen" onclick="openSheet('essen')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+    Essen
+  </button>
+  <button class="qa-stuhl" onclick="openSheet('stuhl')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 1 1 16 0"/><path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>
+    Stuhlgang
+  </button>
+  <button class="qa-symptom" onclick="openSheet('symptom')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86l-8.18 14.14A1 1 0 0 0 3 19.5h18a1 1 0 0 0 .86-1.5L13.71 3.86a1 1 0 0 0-1.72 0z"/></svg>
+    Symptom
+  </button>
+</div>
+
+<div class="timeline-cols" id="timeline"></div>
+
+<div id="sheetOverlay"></div>
+
+<script>
+let entries = [];
+let currentDay = new Date();
+let recognition = null;
+let activeTextarea = null;
+let settings = { showPhotos: false };
+let revealed = {};
+
+async function storageGet(key) {
+  if (window.storage) {
+    try {
+      const res = await window.storage.get(key, false);
+      return res ? res.value : null;
+    } catch (e) { return null; }
+  }
+  return localStorage.getItem(key);
+}
+
+async function storageSet(key, value) {
+  if (window.storage) {
+    try { await window.storage.set(key, value, false); } catch (e) { console.error(e); }
+    return;
+  }
+  localStorage.setItem(key, value);
+}
+
+async function loadEntries() {
+  try {
+    const v = await storageGet('entries');
+    entries = v ? JSON.parse(v) : [];
+  } catch (e) {
+    entries = [];
+  }
+  try {
+    const s = await storageGet('settings');
+    if (s) settings = JSON.parse(s);
+  } catch (e) {}
+  render();
+}
+
+async function persist() {
+  await storageSet('entries', JSON.stringify(entries));
+}
+
+async function persistSettings() {
+  await storageSet('settings', JSON.stringify(settings));
+}
+
+function openSettings() {
+  document.getElementById('settingsOverlay').innerHTML =
+    '<div class="overlay" onclick="if(event.target===this)closeSettings()"><div class="sheet">' +
+    '<h2>Einstellungen</h2>' +
+    '<div class="switchrow"><div><div class="label">Fotos direkt anzeigen</div>' +
+    '<div class="sublabel">Wenn aus: Fotos sind verschwommen, bis du sie antippst.</div></div>' +
+    '<button class="switch' + (settings.showPhotos ? ' on' : '') + '" id="photoSwitch" onclick="toggleShowPhotos()"><span class="knob"></span></button></div>' +
+    '<div class="sheetbtns"><button class="btn-save" onclick="closeSettings()" style="flex:1">Fertig</button></div>' +
+    '</div></div>';
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').innerHTML = '';
+}
+
+function toggleShowPhotos() {
+  settings.showPhotos = !settings.showPhotos;
+  document.getElementById('photoSwitch').classList.toggle('on', settings.showPhotos);
+  persistSettings();
+  render();
+}
+
+function revealPhoto(id) {
+  revealed[id] = true;
+  render();
+}
+
+function fmtDateLabel(d) {
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const y = new Date(today); y.setDate(y.getDate() - 1);
+  const isYesterday = d.toDateString() === y.toDateString();
+  const base = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+  if (isToday) return 'Heute, ' + d.toLocaleDateString('de-DE', { day: '2-digit', month: 'long' });
+  if (isYesterday) return 'Gestern, ' + d.toLocaleDateString('de-DE', { day: '2-digit', month: 'long' });
+  return base;
+}
+
+function changeDay(delta) {
+  currentDay.setDate(currentDay.getDate() + delta);
+  render();
+}
+
+function dayKey(d) {
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+
+function render() {
+  document.getElementById('dateLabel').textContent = fmtDateLabel(currentDay);
+  const key = dayKey(currentDay);
+  const dayEntries = entries.filter(e => dayKey(new Date(e.timestamp)) === key)
+    .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const tl = document.getElementById('timeline');
+  const cols = ['essen', 'stuhl', 'symptom'];
+  tl.innerHTML = cols.map(type => {
+    const colEntries = dayEntries.filter(e => e.type === type);
+    const body = colEntries.length
+      ? colEntries.map(e => renderEntry(e)).join('')
+      : '<div class="empty-col">\u2014</div>';
+    return '<div><div class="col-header h-' + type + '">' + typeLabel(type) + '</div><div class="col-body">' + body + '</div></div>';
+  }).join('');
+}
+
+function typeLabel(t) {
+  if (t === 'essen') return 'Essen';
+  if (t === 'stuhl') return 'Stuhlgang';
+  return 'Symptom';
+}
+
+function renderEntry(e) {
+  const time = new Date(e.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  let meta = '';
+  if (e.type === 'stuhl' && e.scale) meta = 'Bristol-Skala: ' + e.scale;
+  if (e.type === 'symptom' && e.scale) meta = 'St\u00e4rke: ' + e.scale + '/5';
+  let photoHtml = '';
+  if (e.photo) {
+    const isHidden = !settings.showPhotos && !revealed[e.id];
+    photoHtml = '<div class="photowrap' + (isHidden ? ' hidden' : '') + (revealed[e.id] ? ' revealed' : '') + '">' +
+      '<img src="' + e.photo + '">' +
+      (isHidden ? '<button class="reveal" onclick="revealPhoto(\'' + e.id + '\')">Foto anzeigen</button>' : '') +
+      '</div>';
+  }
+  return '<div class="card">' +
+    '<div class="row1"><span class="time">' + time + '</span></div>' +
+    (e.text ? '<div class="text">' + escapeHtml(e.text) + '</div>' : '') +
+    (meta ? '<div class="meta">' + meta + '</div>' : '') +
+    photoHtml +
+    '<button class="del" onclick="deleteEntry(\'' + e.id + '\')">L\u00f6schen</button>' +
+    '</div>';
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function deleteEntry(id) {
+  if (!confirm('Diesen Eintrag wirklich l\u00f6schen?')) return;
+  entries = entries.filter(e => e.id !== id);
+  persist();
+  render();
+}
+
+let sheetType = null;
+let sheetScale = null;
+let sheetPhoto = null;
+
+function openSheet(type) {
+  sheetType = type;
+  sheetScale = null;
+  sheetPhoto = null;
+  const now = new Date();
+  const localIso = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  let scaleHtml = '';
+  if (type === 'stuhl') {
+    scaleHtml = '<div class="field"><label>Bristol-Stuhlformen-Skala (1 = hart, 7 = w\u00e4ssrig)</label><div class="scalepicker" id="scalepicker">' +
+      [1,2,3,4,5,6,7].map(n => '<button onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>';
+  } else if (type === 'symptom') {
+    scaleHtml = '<div class="field"><label>St\u00e4rke (1 = leicht, 5 = stark)</label><div class="scalepicker" id="scalepicker">' +
+      [1,2,3,4,5].map(n => '<button class="symptombtn" onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>';
+  }
+  document.getElementById('sheetOverlay').innerHTML =
+    '<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet">' +
+    '<h2>' + typeLabel(type) + ' eintragen</h2>' +
+    '<div class="field"><label>Zeitpunkt</label><input type="datetime-local" id="entryTime" value="' + localIso + '"></div>' +
+    scaleHtml +
+    '<div class="field"><label>Notiz</label>' +
+    '<div class="mic"><button id="micBtn" onclick="toggleMic()">\u{1F3A4} Diktieren</button></div>' +
+    '<textarea id="entryText" placeholder="z.B. was genau gegessen, wie es sich angef\u00fchlt hat..."></textarea>' +
+    '<div class="hint">Spracherkennung funktioniert am besten in Chrome auf Android.</div></div>' +
+    '<div class="field"><label>Foto</label>' +
+    '<input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none" onchange="handlePhoto(event)">' +
+    '<button class="photobtn" onclick="document.getElementById(\'photoInput\').click()" id="photoBtnLabel">+ Foto aufnehmen</button></div>' +
+    '<div class="sheetbtns"><button class="btn-cancel" onclick="closeSheet()">Abbrechen</button>' +
+    '<button class="btn-save" onclick="saveEntry()">Speichern</button></div>' +
+    '</div></div>';
+}
+
+function pickScale(n, btn) {
+  sheetScale = n;
+  document.querySelectorAll('#scalepicker button').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if (sheetType === 'symptom') btn.classList.add('symptom');
+}
+
+function closeSheet() {
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  document.getElementById('sheetOverlay').innerHTML = '';
+}
+
+function micErrorMessage(err) {
+  if (err === 'not-allowed' || err === 'service-not-allowed') {
+    return 'Kein Mikrofonzugriff erlaubt. Bitte in den Browser- bzw. Website-Einstellungen das Mikrofon f\u00fcr diese Seite zulassen.';
+  }
+  if (err === 'audio-capture') {
+    return 'Es wurde kein Mikrofon gefunden.';
+  }
+  if (err === 'network') {
+    return 'Spracherkennung braucht eine Internetverbindung.';
+  }
+  return 'Diktieren hat nicht funktioniert (Grund: ' + (err || 'unbekannt') + '). Bitte Text manuell eingeben.';
+}
+
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    alert('Spracherkennung wird von diesem Browser nicht unterst\u00fctzt. Bitte Text manuell eingeben.');
+    return;
+  }
+  const btn = document.getElementById('micBtn');
+  const ta = document.getElementById('entryText');
+  if (recognition) {
+    try { recognition.stop(); } catch(e){}
+    recognition = null;
+    btn.classList.remove('rec');
+    btn.textContent = '\u{1F3A4} Diktieren';
+    return;
+  }
+  recognition = new SR();
+  recognition.lang = 'de-DE';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  const startText = ta.value;
+  recognition.onresult = (ev) => {
+    let finalTranscript = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      if (ev.results[i].isFinal) finalTranscript += ev.results[i][0].transcript;
+    }
+    ta.value = (startText + ' ' + finalTranscript).trim();
+  };
+  recognition.onerror = (ev) => {
+    btn.classList.remove('rec');
+    btn.textContent = '\u{1F3A4} Diktieren';
+    const err = recognition;
+    recognition = null;
+    alert(micErrorMessage(ev.error));
+  };
+  recognition.onend = () => {
+    btn.classList.remove('rec');
+    btn.textContent = '\u{1F3A4} Diktieren';
+    recognition = null;
+  };
+  try {
+    recognition.start();
+    btn.classList.add('rec');
+    btn.textContent = '\u23f9 Stopp';
+  } catch (e) {
+    recognition = null;
+    alert(micErrorMessage(e.message));
+  }
+}
+
+function handlePhoto(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 700;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      sheetPhoto = canvas.toDataURL('image/jpeg', 0.6);
+      document.getElementById('photoBtnLabel').textContent = '\u2713 Foto angeh\u00e4ngt (antippen zum \u00e4ndern)';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveEntry() {
+  const timeVal = document.getElementById('entryTime').value;
+  const text = document.getElementById('entryText').value.trim();
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    type: sheetType,
+    timestamp: new Date(timeVal).toISOString(),
+    text: text,
+    scale: sheetScale,
+    photo: sheetPhoto
+  };
+  entries.push(entry);
+  await persist();
+  closeSheet();
+  currentDay = new Date(entry.timestamp);
+  render();
+}
+
+loadEntries();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</div>
+</body>
+</html>
