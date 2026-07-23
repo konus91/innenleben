@@ -1,4 +1,4 @@
-const CACHE_NAME = 'innenleben-v3';
+const CACHE_NAME = 'innenleben-v4';
 const FILES = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {

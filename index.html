@@ -131,6 +131,35 @@ let activeTextarea = null;
 let settings = { showPhotos: false };
 let revealed = {};
 
+let dbPromise = null;
+function getDb() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open('innenleben-db', 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore('kv'); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+
+function idbGet(key) {
+  return getDb().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction('kv', 'readonly').objectStore('kv').get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function idbSet(key, value) {
+  return getDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
 async function storageGet(key) {
   if (window.storage) {
     try {
@@ -138,7 +167,17 @@ async function storageGet(key) {
       return res ? res.value : null;
     } catch (e) { return null; }
   }
-  return localStorage.getItem(key);
+  try {
+    const idbVal = await idbGet(key);
+    if (idbVal !== null) return idbVal;
+    const legacy = localStorage.getItem(key);
+    if (legacy !== null) {
+      await idbSet(key, legacy);
+      localStorage.removeItem(key);
+      return legacy;
+    }
+    return null;
+  } catch (e) { return null; }
 }
 
 async function storageSet(key, value) {
@@ -146,7 +185,11 @@ async function storageSet(key, value) {
     try { await window.storage.set(key, value, false); } catch (e) { console.error(e); }
     return;
   }
-  localStorage.setItem(key, value);
+  try {
+    await idbSet(key, value);
+  } catch (e) {
+    alert('Speichern fehlgeschlagen: der Speicherplatz auf dem Ger\u00e4t k\u00f6nnte voll sein.');
+  }
 }
 
 async function loadEntries() {
@@ -178,8 +221,50 @@ function openSettings() {
     '<div class="switchrow"><div><div class="label">Fotos direkt anzeigen</div>' +
     '<div class="sublabel">Wenn aus: Fotos sind verschwommen, bis du sie antippst.</div></div>' +
     '<button class="switch' + (settings.showPhotos ? ' on' : '') + '" id="photoSwitch" onclick="toggleShowPhotos()"><span class="knob"></span></button></div>' +
+    '<div class="field"><label>Daten sichern</label>' +
+    '<button class="photobtn" style="margin-bottom:8px;" onclick="exportText()">Als Textliste exportieren (z.B. f\u00fcr den Arzt)</button>' +
+    '<button class="photobtn" onclick="exportJson()">Vollst\u00e4ndiges Backup (mit Fotos)</button>' +
+    '<div class="hint">Das Backup wird als Datei heruntergeladen und liegt nirgendwo sonst.</div></div>' +
     '<div class="sheetbtns"><button class="btn-save" onclick="closeSettings()" style="flex:1">Fertig</button></div>' +
     '</div></div>';
+}
+
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportText() {
+  const sorted = [...entries].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+  let lastDay = '';
+  let out = 'Innenleben \u2013 Tagebuch-Export\n\n';
+  sorted.forEach(e => {
+    const d = new Date(e.timestamp);
+    const dayStr = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    if (dayStr !== lastDay) {
+      out += '\n== ' + dayStr + ' ==\n';
+      lastDay = dayStr;
+    }
+    const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    let line = time + ' \u2013 ' + typeLabel(e.type);
+    if (e.medName) line += ': ' + e.medName;
+    if (e.scale) line += (e.type === 'stuhl' ? ' (Bristol-Skala ' + e.scale + ')' : ' (St\u00e4rke ' + e.scale + '/5)');
+    out += line + '\n';
+    if (e.text) out += '  ' + e.text.split('\n').join('\n  ') + '\n';
+    if (e.photo) out += '  [Foto vorhanden]\n';
+  });
+  downloadFile('innenleben-export.txt', out, 'text/plain');
+}
+
+function exportJson() {
+  downloadFile('innenleben-backup.json', JSON.stringify({ entries, settings }, null, 2), 'application/json');
 }
 
 function closeSettings() {
