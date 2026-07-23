@@ -21,17 +21,19 @@
 .daynav { display: flex; align-items: center; justify-content: space-between; padding: 0 20px 16px; }
 .daynav button { background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 8px; width: 36px; height: 36px; font-size: 16px; color: #1F2B27; }
 .daynav .datelabel { font-size: 15px; font-weight: 500; text-align: center; flex: 1; }
-.quickadd { display: flex; gap: 8px; padding: 0 20px 20px; }
-.quickadd button { flex: 1; border: none; border-radius: 12px; padding: 14px 6px; font-size: 13px; font-weight: 500; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.quickadd { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 20px; }
+.quickadd button { flex: 1 1 40%; border: none; border-radius: 12px; padding: 14px 6px; font-size: 13px; font-weight: 500; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .qa-essen { background: #2F6E63; }
 .qa-stuhl { background: #B98A2E; }
 .qa-symptom { background: #7C5B72; }
+.qa-medikament { background: #3D5A80; }
 .quickadd button svg { width: 20px; height: 20px; }
-.timeline-cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; padding: 0 20px; align-items: start; }
+.timeline-cols { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 0 20px; align-items: start; }
 .col-header { font-size: 12px; font-weight: 500; text-align: center; padding: 6px 2px; border-radius: 8px 8px 0 0; color: #FFFFFF; }
 .col-header.h-essen { background: #2F6E63; }
 .col-header.h-stuhl { background: #B98A2E; }
 .col-header.h-symptom { background: #7C5B72; }
+.col-header.h-medikament { background: #3D5A80; }
 .col-body { background: #FFFFFF; border: 1px solid #E1E7DE; border-top: none; border-radius: 0 0 8px 8px; min-height: 60px; padding: 6px; }
 .card { border-bottom: 1px solid #E1E7DE; padding: 8px 2px; }
 .card:last-child { border-bottom: none; }
@@ -53,7 +55,7 @@
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 12px; color: #5B6B62; margin-bottom: 4px; }
 .field textarea { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit; min-height: 60px; resize: vertical; }
-.field input[type=datetime-local] { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; }
+.field input[type=datetime-local], .field input[type=text] { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; }
 .mic { display: flex; gap: 8px; align-items: center; }
 .mic button { border: 1px solid #E1E7DE; background: #F3F6F1; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .mic button.rec { background: #7C5B72; color: #FFFFFF; border-color: #7C5B72; }
@@ -110,6 +112,10 @@
   <button class="qa-symptom" onclick="openSheet('symptom')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86l-8.18 14.14A1 1 0 0 0 3 19.5h18a1 1 0 0 0 .86-1.5L13.71 3.86a1 1 0 0 0-1.72 0z"/></svg>
     Symptom
+  </button>
+  <button class="qa-medikament" onclick="openSheet('medikament')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 3v18"/><path d="M3 12h18" transform="rotate(45 12 12)"/></svg>
+    Medikament
   </button>
 </div>
 
@@ -218,7 +224,7 @@ function render() {
   const dayEntries = entries.filter(e => dayKey(new Date(e.timestamp)) === key)
     .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
   const tl = document.getElementById('timeline');
-  const cols = ['essen', 'stuhl', 'symptom'];
+  const cols = ['essen', 'stuhl', 'symptom', 'medikament'];
   tl.innerHTML = cols.map(type => {
     const colEntries = dayEntries.filter(e => e.type === type);
     const body = colEntries.length
@@ -231,6 +237,7 @@ function render() {
 function typeLabel(t) {
   if (t === 'essen') return 'Essen';
   if (t === 'stuhl') return 'Stuhlgang';
+  if (t === 'medikament') return 'Medikament';
   return 'Symptom';
 }
 
@@ -249,6 +256,7 @@ function renderEntry(e) {
   }
   return '<div class="card">' +
     '<div class="row1"><span class="time">' + time + '</span></div>' +
+    (e.medName ? '<div class="text" style="font-weight:500;">' + escapeHtml(e.medName) + '</div>' : '') +
     (e.text ? '<div class="text">' + escapeHtml(e.text) + '</div>' : '') +
     (meta ? '<div class="meta">' + meta + '</div>' : '') +
     photoHtml +
@@ -287,10 +295,15 @@ function openSheet(type) {
     scaleHtml = '<div class="field"><label>St\u00e4rke (1 = leicht, 5 = stark)</label><div class="scalepicker" id="scalepicker">' +
       [1,2,3,4,5].map(n => '<button class="symptombtn" onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>';
   }
+  let medNameHtml = '';
+  if (type === 'medikament') {
+    medNameHtml = '<div class="field"><label>Medikament</label><input type="text" id="medName" placeholder="z.B. Mesalazin 500mg"></div>';
+  }
   document.getElementById('sheetOverlay').innerHTML =
     '<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet">' +
     '<h2>' + typeLabel(type) + ' eintragen</h2>' +
     '<div class="field"><label>Zeitpunkt</label><input type="datetime-local" id="entryTime" value="' + localIso + '"></div>' +
+    medNameHtml +
     scaleHtml +
     '<div class="field"><label>Notiz</label>' +
     '<div class="mic"><button id="micBtn" onclick="toggleMic()">\u{1F3A4} Diktieren</button></div>' +
@@ -348,13 +361,16 @@ function toggleMic() {
   recognition.lang = 'de-DE';
   recognition.continuous = true;
   recognition.interimResults = false;
-  const startText = ta.value;
   recognition.onresult = (ev) => {
-    let finalTranscript = '';
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      if (ev.results[i].isFinal) finalTranscript += ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) {
+        const phrase = ev.results[i][0].transcript.trim();
+        if (phrase) {
+          const bullet = '\u2022 ' + phrase;
+          ta.value = ta.value ? (ta.value + '\n' + bullet) : bullet;
+        }
+      }
     }
-    ta.value = (startText + ' ' + finalTranscript).trim();
   };
   recognition.onerror = (ev) => {
     btn.classList.remove('rec');
@@ -403,11 +419,13 @@ function handlePhoto(ev) {
 async function saveEntry() {
   const timeVal = document.getElementById('entryTime').value;
   const text = document.getElementById('entryText').value.trim();
+  const medNameEl = document.getElementById('medName');
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     type: sheetType,
     timestamp: new Date(timeVal).toISOString(),
     text: text,
+    medName: medNameEl ? medNameEl.value.trim() : '',
     scale: sheetScale,
     photo: sheetPhoto
   };
