@@ -115,6 +115,11 @@
 .switch.on { background: #2F6E63; }
 .switch .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; transition: left 0.15s; }
 .switch.on .knob { left: 20px; }
+.reminderbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #3D5A80; color: #FFFFFF; margin: 0 20px 14px; padding: 10px 14px; border-radius: 10px; font-size: 12px; }
+.reminderbar .rbtns { display: flex; gap: 6px; flex-shrink: 0; }
+.reminderbar button { border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+.reminderbar .rsave { background: #FFFFFF; color: #3D5A80; font-weight: 500; }
+.reminderbar .rlater { background: rgba(255,255,255,0.2); color: #FFFFFF; }
 </style>
 
 <div class="header">
@@ -129,6 +134,8 @@
   </div>
 </div>
 <div id="settingsOverlay"></div>
+
+<div id="reminderBar" style="display:none;"></div>
 
 <div class="viewtabs">
   <button class="tab active" id="tabDay" onclick="setView('day')">Tagesansicht</button>
@@ -280,7 +287,16 @@ async function storageSet(key, value) {
   }
 }
 
+async function requestPersistentStorage() {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      await navigator.storage.persist();
+    }
+  } catch (e) {}
+}
+
 async function loadEntries() {
+  requestPersistentStorage();
   try {
     const v = await storageGet('entries');
     entries = v ? JSON.parse(v) : [];
@@ -301,6 +317,7 @@ async function loadEntries() {
   } catch (e) { urgeCounts = {}; }
   render();
   renderUrgeCount();
+  checkBackupReminder();
 }
 
 async function persistSettings() {
@@ -413,7 +430,58 @@ function exportText() {
 }
 
 function exportJson() {
-  downloadFile('innenleben-backup.json', JSON.stringify({ entries, settings }, null, 2), 'application/json');
+  downloadFile('innenleben-backup.json', JSON.stringify({ entries, settings, medications }, null, 2), 'application/json');
+  markBackupDone();
+}
+
+const BACKUP_REMINDER_DAYS = 5;
+const BACKUP_SNOOZE_DAYS = 3;
+
+async function checkBackupReminder() {
+  if (entries.length === 0) return;
+  let meta = {};
+  try {
+    const raw = await storageGet('backupMeta');
+    meta = raw ? JSON.parse(raw) : {};
+  } catch (e) { meta = {}; }
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const snoozedUntil = meta.snoozedUntil || 0;
+  if (now < snoozedUntil) return;
+  const lastBackupAt = meta.lastBackupAt || 0;
+  const daysSince = (now - lastBackupAt) / dayMs;
+  if (daysSince < BACKUP_REMINDER_DAYS) return;
+  const bar = document.getElementById('reminderBar');
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span>\u{1F4BE} Lange kein Backup mehr \u2013 Daten jetzt sichern?</span>' +
+    '<div class="rbtns"><button class="rlater" onclick="snoozeBackupReminder()">Sp\u00e4ter</button>' +
+    '<button class="rsave" onclick="exportJson(); hideBackupReminder();">Sichern</button></div>';
+}
+
+function hideBackupReminder() {
+  document.getElementById('reminderBar').style.display = 'none';
+}
+
+async function snoozeBackupReminder() {
+  let meta = {};
+  try {
+    const raw = await storageGet('backupMeta');
+    meta = raw ? JSON.parse(raw) : {};
+  } catch (e) {}
+  meta.snoozedUntil = Date.now() + BACKUP_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+  await storageSet('backupMeta', JSON.stringify(meta));
+  hideBackupReminder();
+}
+
+async function markBackupDone() {
+  let meta = {};
+  try {
+    const raw = await storageGet('backupMeta');
+    meta = raw ? JSON.parse(raw) : {};
+  } catch (e) {}
+  meta.lastBackupAt = Date.now();
+  meta.snoozedUntil = 0;
+  await storageSet('backupMeta', JSON.stringify(meta));
 }
 
 function closeSettings() {
