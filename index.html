@@ -60,6 +60,31 @@
 .field select { width: 100%; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 14px; background: #FFFFFF; }
 .medlist-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #E1E7DE; font-size: 13px; }
 .medlist-item button { background: none; border: none; color: #B4B2A9; font-size: 12px; }
+.viewtabs { display: flex; gap: 8px; padding: 0 20px 16px; }
+.viewtabs .tab { flex: 1; background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 500; color: #5B6B62; }
+.viewtabs .tab.active { background: #1F2B27; color: #FFFFFF; border-color: #1F2B27; }
+.rangepicker { display: flex; gap: 8px; padding: 0 20px 12px; }
+.rangebtn { flex: 1; background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px; font-size: 12px; color: #1F2B27; }
+.rangebtn.active { background: #2F6E63; color: #FFFFFF; border-color: #2F6E63; }
+.customrange { display: flex; align-items: center; gap: 6px; padding: 0 20px 14px; font-size: 12px; flex-wrap: wrap; }
+.customrange input[type=date] { border: 1px solid #E1E7DE; border-radius: 8px; padding: 6px; font-size: 12px; flex: 1; min-width: 120px; }
+.customrange .btn-save { flex: none; padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+.tlegend { display: flex; gap: 14px; padding: 0 20px 14px; font-size: 11px; color: #5B6B62; align-items: center; }
+.tlegend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.tlegend i.dot-essen { background: #2F6E63; }
+.tlegend i.dot-stuhl { background: #B98A2E; }
+.tlegend i.dot-medikament { background: #3D5A80; }
+.trow { padding: 0 20px 18px; }
+.trow .tdaylabel { font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+.ttrack { position: relative; height: 28px; background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 8px; }
+.ttick { position: absolute; top: 0; bottom: 0; width: 1px; background: #E1E7DE; }
+.tticklabel { position: absolute; top: 30px; font-size: 9px; color: #B4B2A9; transform: translateX(-50%); }
+.tmark { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #FFFFFF; }
+.tmark.m-essen { background: #2F6E63; }
+.tmark.m-stuhl { background: #B98A2E; }
+.tmark.m-medikament { background: #3D5A80; }
+.texpand { background: #FFFFFF; border: 1px solid #E1E7DE; border-radius: 8px; padding: 8px 10px; margin-top: 6px; font-size: 12px; }
+.texpand .ttime { font-weight: 500; }
 .overlay { position: fixed; inset: 0; background: rgba(31,43,39,0.4); display: flex; align-items: flex-end; z-index: 10; }
 .sheet { background: #FFFFFF; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 16px 16px 0 0; padding: 20px; max-height: 88vh; overflow-y: auto; }
 .sheet h2 { font-size: 17px; margin: 0 0 14px; }
@@ -105,6 +130,12 @@
 </div>
 <div id="settingsOverlay"></div>
 
+<div class="viewtabs">
+  <button class="tab active" id="tabDay" onclick="setView('day')">Tagesansicht</button>
+  <button class="tab" id="tabTimeline" onclick="setView('timeline')">Zeitstrahl</button>
+</div>
+
+<div id="dayView">
 <div class="daynav">
   <button onclick="changeDay(-1)">‹</button>
   <div class="datelabel" id="dateLabel"></div>
@@ -144,6 +175,30 @@
 </div>
 
 <div class="timeline-cols" id="timeline"></div>
+</div>
+
+<div id="timelineView" style="display:none;">
+  <div class="rangepicker">
+    <button class="rangebtn active" data-range="3" onclick="setRange(3)">3 Tage</button>
+    <button class="rangebtn" data-range="7" onclick="setRange(7)">1 Woche</button>
+    <button class="rangebtn" data-range="14" onclick="setRange(14)">2 Wochen</button>
+    <button class="rangebtn" id="rangeCustomBtn" onclick="toggleCustomRangeUI()">Zeitraum</button>
+  </div>
+  <div id="customRangeRow" style="display:none;">
+    <div class="customrange">
+      <input type="date" id="customStart">
+      <span>bis</span>
+      <input type="date" id="customEnd">
+      <button class="btn-save" onclick="applyCustomRange()">Anwenden</button>
+    </div>
+  </div>
+  <div class="tlegend">
+    <span><i class="dot-essen"></i> Essen</span>
+    <span><i class="dot-medikament"></i> Medikament</span>
+    <span><i class="dot-stuhl"></i> Stuhlgang</span>
+  </div>
+  <div id="timelineRows"></div>
+</div>
 
 <div id="sheetOverlay"></div>
 
@@ -157,6 +212,12 @@ let revealed = {};
 let medications = [];
 let urgeCounts = {};
 let editingId = null;
+let currentView = 'day';
+let timelineRange = 3;
+let expandedTimelineId = null;
+let customRangeActive = false;
+let customStart = null;
+let customEnd = null;
 
 let dbPromise = null;
 function getDb() {
@@ -659,6 +720,109 @@ async function saveEntry() {
   closeSheet();
   currentDay = new Date(entry.timestamp);
   render();
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('tabDay').classList.toggle('active', v === 'day');
+  document.getElementById('tabTimeline').classList.toggle('active', v === 'timeline');
+  document.getElementById('dayView').style.display = v === 'day' ? '' : 'none';
+  document.getElementById('timelineView').style.display = v === 'timeline' ? '' : 'none';
+  if (v === 'timeline') renderTimelineView();
+}
+
+function setRange(r) {
+  timelineRange = r;
+  customRangeActive = false;
+  document.querySelectorAll('.rangebtn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.rangebtn[data-range="' + r + '"]').classList.add('active');
+  document.getElementById('customRangeRow').style.display = 'none';
+  renderTimelineView();
+}
+
+function toggleCustomRangeUI() {
+  const row = document.getElementById('customRangeRow');
+  const opening = row.style.display === 'none';
+  row.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    const endEl = document.getElementById('customEnd');
+    const startEl = document.getElementById('customStart');
+    if (!endEl.value) endEl.value = new Date().toISOString().slice(0,10);
+    if (!startEl.value) {
+      const s = new Date();
+      s.setDate(s.getDate() - (timelineRange - 1));
+      startEl.value = s.toISOString().slice(0,10);
+    }
+  }
+}
+
+function applyCustomRange() {
+  const s = document.getElementById('customStart').value;
+  const e = document.getElementById('customEnd').value;
+  if (!s || !e) return;
+  customStart = new Date(s + 'T00:00:00');
+  customEnd = new Date(e + 'T00:00:00');
+  if (customStart > customEnd) { const t = customStart; customStart = customEnd; customEnd = t; }
+  customRangeActive = true;
+  document.querySelectorAll('.rangebtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('rangeCustomBtn').classList.add('active');
+  renderTimelineView();
+}
+
+function toggleTimelineEntry(id) {
+  expandedTimelineId = expandedTimelineId === id ? null : id;
+  renderTimelineView();
+}
+
+function renderTimelineView() {
+  const relevant = entries.filter(e => e.type === 'essen' || e.type === 'stuhl' || e.type === 'medikament');
+  const days = [];
+  if (customRangeActive && customStart && customEnd) {
+    const d = new Date(customEnd);
+    while (d >= customStart) {
+      days.push(new Date(d));
+      d.setDate(d.getDate() - 1);
+    }
+  } else {
+    for (let i = 0; i < timelineRange; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d);
+    }
+  }
+  const ticks = [0, 6, 12, 18, 24];
+  const rowsHtml = days.map(d => {
+    const key = dayKey(d);
+    const dayEntries = relevant.filter(e => dayKey(new Date(e.timestamp)) === key);
+    const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    const tickHtml = ticks.map(h => {
+      const pct = (h / 24) * 100;
+      return '<div class="ttick" style="left:' + pct + '%"></div>' +
+        (h < 24 ? '<div class="tticklabel" style="left:' + pct + '%">' + h + 'h</div>' : '');
+    }).join('');
+    const marksHtml = dayEntries.map(e => {
+      const dt = new Date(e.timestamp);
+      const minutes = dt.getHours() * 60 + dt.getMinutes();
+      const slot = Math.floor(minutes / 30);
+      const pct = ((slot + 0.5) / 48) * 100;
+      return '<button class="tmark m-' + e.type + '" style="left:' + pct + '%" onclick="toggleTimelineEntry(\'' + e.id + '\')" aria-label="' + typeLabel(e.type) + '"></button>';
+    }).join('');
+    let expandHtml = '';
+    const expandedEntry = dayEntries.find(e => e.id === expandedTimelineId);
+    if (expandedEntry) {
+      const time = new Date(expandedEntry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      let meta = '';
+      if (expandedEntry.type === 'stuhl' && expandedEntry.scale) meta = ' \u2013 Bristol-Skala ' + expandedEntry.scale;
+      expandHtml = '<div class="texpand"><span class="ttime">' + time + ' \u2013 ' + typeLabel(expandedEntry.type) + meta + '</span>' +
+        (expandedEntry.medName ? '<div>' + escapeHtml(expandedEntry.medName) + '</div>' : '') +
+        (expandedEntry.text ? '<div>' + escapeHtml(expandedEntry.text) + '</div>' : '') +
+        '</div>';
+    }
+    return '<div class="trow"><div class="tdaylabel">' + label + '</div>' +
+      '<div class="ttrack">' + tickHtml + marksHtml + '</div>' +
+      expandHtml + '</div>';
+  }).join('');
+  document.getElementById('timelineRows').innerHTML = rowsHtml;
 }
 
 loadEntries();
