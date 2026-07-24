@@ -422,7 +422,8 @@ function closeSettings() {
 
 function togglePhotoReveal(id) {
   revealed[id] = !revealed[id];
-  render();
+  if (currentView === 'timeline') renderTimelineView();
+  else render();
 }
 
 function fmtDateLabel(d) {
@@ -794,8 +795,10 @@ function renderTimelineView() {
   const rowsHtml = days.map(d => {
     const key = dayKey(d);
     const dayEntries = relevant.filter(e => dayKey(new Date(e.timestamp)) === key);
+    const stuhlCount = dayEntries.filter(e => e.type === 'stuhl').length;
     const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-    const tickHtml = ticks.map(h => {
+    const ticks_ = [0, 6, 12, 18, 24];
+    const tickHtml = ticks_.map(h => {
       const pct = (h / 24) * 100;
       return '<div class="ttick" style="left:' + pct + '%"></div>' +
         (h < 24 ? '<div class="tticklabel" style="left:' + pct + '%">' + h + 'h</div>' : '');
@@ -813,12 +816,26 @@ function renderTimelineView() {
       const time = new Date(expandedEntry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       let meta = '';
       if (expandedEntry.type === 'stuhl' && expandedEntry.scale) meta = ' \u2013 Bristol-Skala ' + expandedEntry.scale;
+      let photoHtml = '';
+      if (expandedEntry.photo) {
+        let defaultHidden;
+        if (expandedEntry.type === 'essen') defaultHidden = false;
+        else if (expandedEntry.type === 'stuhl') defaultHidden = !settings.showPhotos;
+        else defaultHidden = true;
+        const isRevealed = !!revealed[expandedEntry.id];
+        const isHidden = defaultHidden && !isRevealed;
+        photoHtml = '<div class="photowrap' + (isHidden ? ' hidden' : '') + (isRevealed ? ' revealed' : '') + '">' +
+          '<img src="' + expandedEntry.photo + '">' +
+          (defaultHidden ? '<button class="reveal" onclick="togglePhotoReveal(\'' + expandedEntry.id + '\')">' + (isHidden ? 'Foto anzeigen' : 'Foto wieder verstecken') + '</button>' : '') +
+          '</div>';
+      }
       expandHtml = '<div class="texpand"><span class="ttime">' + time + ' \u2013 ' + typeLabel(expandedEntry.type) + meta + '</span>' +
         (expandedEntry.medName ? '<div>' + escapeHtml(expandedEntry.medName) + '</div>' : '') +
         (expandedEntry.text ? '<div>' + escapeHtml(expandedEntry.text) + '</div>' : '') +
+        photoHtml +
         '</div>';
     }
-    return '<div class="trow"><div class="tdaylabel">' + label + '</div>' +
+    return '<div class="trow"><div class="tdaylabel">' + label + (stuhlCount ? ' <span class="badge" style="background:#B98A2E;color:#fff;">' + stuhlCount + 'x Stuhlgang</span>' : '') + '</div>' +
       '<div class="ttrack">' + tickHtml + marksHtml + '</div>' +
       expandHtml + '</div>';
   }).join('');
