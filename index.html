@@ -115,6 +115,9 @@
 .switch.on { background: #2F6E63; }
 .switch .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; transition: left 0.15s; }
 .switch.on .knob { left: 20px; }
+.switch.blood.on { background: #C0392B; }
+.card.blood { border: 2px solid #C0392B; }
+.tmark.blood-ring { box-shadow: 0 0 0 2px #C0392B; }
 .reminderbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #3D5A80; color: #FFFFFF; margin: 0 20px 14px; padding: 10px 14px; border-radius: 10px; font-size: 12px; }
 .reminderbar .rbtns { display: flex; gap: 6px; flex-shrink: 0; }
 .reminderbar button { border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; }
@@ -203,6 +206,7 @@
     <span><i class="dot-essen"></i> Essen</span>
     <span><i class="dot-medikament"></i> Medikament</span>
     <span><i class="dot-stuhl"></i> Stuhlgang</span>
+    <span style="display:inline-flex;align-items:center;"><i style="border:2px solid #C0392B;background:transparent;width:6px;height:6px;"></i> Blut</span>
   </div>
   <div id="timelineRows"></div>
 </div>
@@ -542,6 +546,7 @@ function renderEntry(e) {
   const time = new Date(e.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   let meta = '';
   if (e.type === 'stuhl' && e.scale) meta = 'Bristol-Skala: ' + e.scale;
+  if (e.blood) meta += (meta ? ' \u2013 ' : '') + '<span style="color:#C0392B;font-weight:500;">Blut vorhanden</span>';
   if (e.type === 'symptom' && e.scale) meta = 'St\u00e4rke: ' + e.scale + '/5';
   let photoHtml = '';
   if (e.photo) {
@@ -557,7 +562,7 @@ function renderEntry(e) {
       (showToggleBtn ? '<button class="reveal" onclick="togglePhotoReveal(\'' + e.id + '\')">' + (isHidden ? 'Foto anzeigen' : 'Foto wieder verstecken') + '</button>' : '') +
       '</div>';
   }
-  return '<div class="card">' +
+  return '<div class="card' + (e.blood ? ' blood' : '') + '">' +
     '<div class="row1"><span class="time">' + time + '</span></div>' +
     (e.medName ? '<div class="text" style="font-weight:500;">' + escapeHtml(e.medName) + '</div>' : '') +
     (e.text ? '<div class="text">' + escapeHtml(e.text) + '</div>' : '') +
@@ -584,18 +589,22 @@ function deleteEntry(id) {
 let sheetType = null;
 let sheetScale = null;
 let sheetPhoto = null;
+let sheetBlood = false;
 
 function openSheet(type, existing) {
   sheetType = type;
   sheetScale = existing ? existing.scale : null;
   sheetPhoto = existing ? existing.photo : null;
+  sheetBlood = existing ? !!existing.blood : false;
   editingId = existing ? existing.id : null;
   const now = existing ? new Date(existing.timestamp) : new Date();
   const localIso = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
   let scaleHtml = '';
   if (type === 'stuhl') {
     scaleHtml = '<div class="field"><label>Bristol-Stuhlformen-Skala (1 = hart, 7 = w\u00e4ssrig)</label><div class="scalepicker" id="scalepicker">' +
-      [1,2,3,4,5,6,7].map(n => '<button class="' + (sheetScale === n ? 'sel' : '') + '" onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>';
+      [1,2,3,4,5,6,7].map(n => '<button class="' + (sheetScale === n ? 'sel' : '') + '" onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>' +
+      '<div class="switchrow"><div><div class="label">Blut im Stuhl</div></div>' +
+      '<button class="switch' + (sheetBlood ? ' on blood' : '') + '" id="bloodSwitch" onclick="toggleBlood()"><span class="knob"></span></button></div>';
   } else if (type === 'symptom') {
     scaleHtml = '<div class="field"><label>St\u00e4rke (1 = leicht, 5 = stark)</label><div class="scalepicker" id="scalepicker">' +
       [1,2,3,4,5].map(n => '<button class="symptombtn' + (sheetScale === n ? ' sel symptom' : '') + '" onclick="pickScale(' + n + ',this)">' + n + '</button>').join('') + '</div></div>';
@@ -657,6 +666,12 @@ function pickScale(n, btn) {
   document.querySelectorAll('#scalepicker button').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
   if (sheetType === 'symptom') btn.classList.add('symptom');
+}
+
+function toggleBlood() {
+  sheetBlood = !sheetBlood;
+  document.getElementById('bloodSwitch').classList.toggle('on', sheetBlood);
+  document.getElementById('bloodSwitch').classList.toggle('blood', sheetBlood);
 }
 
 function closeSheet() {
@@ -778,6 +793,7 @@ async function saveEntry() {
     text: text,
     medName: medName,
     scale: sheetScale,
+    blood: sheetType === 'stuhl' ? sheetBlood : false,
     photo: sheetPhoto
   };
   if (editingId) {
@@ -876,7 +892,7 @@ function renderTimelineView() {
       const minutes = dt.getHours() * 60 + dt.getMinutes();
       const slot = Math.floor(minutes / 30);
       const pct = ((slot + 0.5) / 48) * 100;
-      return '<button class="tmark m-' + e.type + '" style="left:' + pct + '%" onclick="toggleTimelineEntry(\'' + e.id + '\')" aria-label="' + typeLabel(e.type) + '"></button>';
+      return '<button class="tmark m-' + e.type + (e.blood ? ' blood-ring' : '') + '" style="left:' + pct + '%" onclick="toggleTimelineEntry(\'' + e.id + '\')" aria-label="' + typeLabel(e.type) + '"></button>';
     }).join('');
     let expandHtml = '';
     const expandedEntry = dayEntries.find(e => e.id === expandedTimelineId);
@@ -884,6 +900,7 @@ function renderTimelineView() {
       const time = new Date(expandedEntry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       let meta = '';
       if (expandedEntry.type === 'stuhl' && expandedEntry.scale) meta = ' \u2013 Bristol-Skala ' + expandedEntry.scale;
+      if (expandedEntry.blood) meta += ' \u2013 <span style="color:#C0392B;font-weight:500;">Blut vorhanden</span>';
       let photoHtml = '';
       if (expandedEntry.photo) {
         let defaultHidden;
